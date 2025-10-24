@@ -1,8 +1,17 @@
 {
+  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
+  "installCommand": "npm install",
+  "devCommand": "npm start",
   "rewrites": [
     {
       "source": "/service-worker.js",
-      "destination": "/service-worker-simple.js"
+      "destination": "/service-worker.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
@@ -16,19 +25,10 @@
         {
           "key": "Content-Type",
           "value": "application/javascript; charset=utf-8"
-        }
-      ]
-    },
-    {
-      "source": "/service-worker-simple.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
         },
         {
-          "key": "Content-Type",
-          "value": "application/javascript; charset=utf-8"
+          "key": "Service-Worker-Allowed",
+          "value": "/"
         }
       ]
     },
@@ -38,6 +38,28 @@
         {
           "key": "Content-Type",
           "value": "application/manifest+json"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
+    },
+    {
+      "source": "/static/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*\\.(ico|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot))",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
         }
       ]
     }

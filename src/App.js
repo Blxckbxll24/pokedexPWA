@@ -18,7 +18,7 @@ function App() {
       
       // PRIMERO: Intentar cargar desde localStorage SIEMPRE
       const cachedData = localStorage.getItem('pokepwa-pokemon-cache');
-      const cacheTime = localStorage.getItem('pokepwa-cache-time');
+      // const cacheTime = localStorage.getItem('pokepwa-cache-time'); // Reservado para futuras versiones
       
       if (cachedData) {
         try {
