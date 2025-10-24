@@ -14,13 +14,32 @@ root.render(
 // Registrar Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
+    const swUrl = '/service-worker.js';
+    
+    navigator.serviceWorker.register(swUrl)
       .then((registration) => {
-        console.log('SW registrado: ', registration);
+        console.log('✅ Service Worker registrado exitosamente:', registration);
+        
+        // Actualizar SW cuando hay una nueva versión
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('🔄 Nueva versión disponible. Recarga la página para actualizar.');
+            }
+          });
+        });
       })
-      .catch((registrationError) => {
-        console.log('SW registro falló: ', registrationError);
+      .catch((error) => {
+        console.error('❌ Error registrando Service Worker:', error);
       });
+      
+    // Escuchar mensajes del service worker
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'CACHE_UPDATED') {
+        console.log('📦 Cache actualizado:', event.data.payload);
+      }
+    });
   });
 }
 

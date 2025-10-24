@@ -1,22 +1,32 @@
-const CACHE_NAME = 'pokepwa-v3';
-const API_CACHE_NAME = 'pokepwa-api-v3';
-const IMAGE_CACHE_NAME = 'pokepwa-images-v2';
+const CACHE_NAME = 'pokepwa-v4';
+const API_CACHE_NAME = 'pokepwa-api-v4';
+const IMAGE_CACHE_NAME = 'pokepwa-images-v3';
 
+// URLs críticas para cache offline
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',
   '/static/css/main.css',
   '/manifest.json',
   '/favicon.ico',
-  '/index.html'
+  '/index.html',
+  '/static/media/logo.svg'
 ];
 
 self.addEventListener('install', (event) => {
+  console.log('🔧 Instalando Service Worker...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Cache abierto');
-        return cache.addAll(urlsToCache);
+        console.log('📦 Cache abierto, agregando recursos críticos...');
+        return cache.addAll(urlsToCache.map(url => new Request(url, {cache: 'reload'})));
+      })
+      .then(() => {
+        console.log('✅ Recursos críticos cacheados');
+        self.skipWaiting(); // Activar inmediatamente
+      })
+      .catch((error) => {
+        console.error('❌ Error cacheando recursos:', error);
       })
   );
 });

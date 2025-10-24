@@ -6,7 +6,6 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedPokemon, setSelectedPokemon] = useState(null);
-  const [loadingDetails, setLoadingDetails] = useState(false);
 
   useEffect(() => {
     fetchPokemon();
