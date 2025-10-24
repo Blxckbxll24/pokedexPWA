@@ -11,31 +11,109 @@ function App() {
     fetchPokemon();
   }, []); // Solo cargar una vez
 
+  // Función separada para cargar datos de Pokémon
+  const fetchPokemonData = async () => {
+    const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
+    const data = await response.json();
+    
+    // Cargar Pokémon en lotes para mejor rendimiento
+    const batchSize = 50;
+    const allPokemon = [];
+    
+    for (let i = 0; i < data.results.length; i += batchSize) {
+      const batch = data.results.slice(i, i + batchSize);
+      console.log(`Cargando lote ${Math.floor(i/batchSize) + 1}/${Math.ceil(data.results.length/batchSize)}...`);
+      
+      const batchDetails = await Promise.all(
+        batch.map(async (poke) => {
+          try {
+            const detailResponse = await fetch(poke.url);
+            const detail = await detailResponse.json();
+            
+            return {
+              id: detail.id,
+              name: detail.name,
+              image: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${detail.id}.png`,
+              types: detail.types.map(type => type.type.name),
+              height: detail.height,
+              weight: detail.weight,
+              abilities: detail.abilities.map(ability => ability.ability.name),
+              stats: detail.stats.map(stat => ({
+                name: stat.stat.name,
+                value: stat.base_stat
+              })),
+              baseExperience: detail.base_experience || 0
+            };
+          } catch (error) {
+            console.error(`Error cargando Pokémon ${poke.name}:`, error);
+            return null;
+          }
+        })
+      );
+      
+      const validBatch = batchDetails.filter(p => p !== null);
+      allPokemon.push(...validBatch);
+    }
+    
+    return allPokemon;
+  };
+
   const fetchPokemon = async () => {
     setLoading(true);
     try {
       console.log('Cargando los primeros 1000 Pokémon...');
       
-      // Verificar si hay datos en cache (extendido a 7 días)
-      const cachedPokemon = localStorage.getItem('pokemonCache');
-      const cacheTimestamp = localStorage.getItem('pokemonCacheTimestamp');
-      const sevenDays = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
+      // Verificar conexión primero
+      const isOnline = navigator.onLine;
+      console.log('Estado de conexión:', isOnline ? 'Online' : 'Offline');
+      
+      // Verificar si hay datos en cache local (extendido a 30 días)
+      const cachedPokemon = localStorage.getItem('pokepwa-pokemon-data');
+      const cacheTimestamp = localStorage.getItem('pokepwa-pokemon-timestamp');
+      const thirtyDays = 30 * 24 * 60 * 60 * 1000; // 30 días en ms
       
       if (cachedPokemon && cacheTimestamp) {
-        const parsedPokemon = JSON.parse(cachedPokemon);
-        const cacheAge = Date.now() - parseInt(cacheTimestamp);
-        
-        // Si el cache es válido O no hay conexión, usar cache
-        if (cacheAge < sevenDays || !navigator.onLine) {
-          console.log('Cargando desde cache local...', {
-            pokemonCount: parsedPokemon.length,
-            cacheAge: Math.round(cacheAge / (1000 * 60 * 60)) + ' horas',
-            offline: !navigator.onLine
-          });
-          setPokemon(parsedPokemon);
-          setLoading(false);
-          return;
+        try {
+          const parsedPokemon = JSON.parse(cachedPokemon);
+          const cacheAge = Date.now() - parseInt(cacheTimestamp);
+          
+          // Si no hay conexión O el cache es válido, usar cache
+          if (!isOnline || cacheAge < thirtyDays) {
+            console.log('🎯 Cargando desde cache local...', {
+              pokemonCount: parsedPokemon.length,
+              cacheAge: Math.round(cacheAge / (1000 * 60 * 60)) + ' horas',
+              offline: !isOnline,
+              reason: !isOnline ? 'Sin conexión' : 'Cache válido'
+            });
+            setPokemon(parsedPokemon);
+            setLoading(false);
+            
+            // Si estamos online y el cache es muy viejo, actualizar en background
+            if (isOnline && cacheAge > 24 * 60 * 60 * 1000) { // 1 día
+              console.log('📡 Actualizando cache en background...');
+              fetchPokemonData().then(newData => {
+                if (newData && newData.length > 0) {
+                  setPokemon(newData);
+                }
+              }).catch(console.error);
+            }
+            
+            return;
+          }
+        } catch (error) {
+          console.error('Error parseando cache local:', error);
+          // Limpiar cache corrupto
+          localStorage.removeItem('pokepwa-pokemon-data');
+          localStorage.removeItem('pokepwa-pokemon-timestamp');
         }
+      }
+      
+      // Si no hay cache válido y no hay conexión, mostrar error
+      if (!isOnline) {
+        console.log('❌ Sin conexión y sin cache disponible');
+        setLoading(false);
+        setPokemon([]);
+        return;
       }
 
       const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
@@ -86,19 +164,31 @@ function App() {
       
       // Guardar en cache con mejor manejo de errores
       try {
-        localStorage.setItem('pokemonCache', JSON.stringify(allPokemon));
-        localStorage.setItem('pokemonCacheTimestamp', Date.now().toString());
-        console.log(`✅ Cache guardado: ${allPokemon.length} Pokémon`);
+        localStorage.setItem('pokepwa-pokemon-data', JSON.stringify(allPokemon));
+        localStorage.setItem('pokepwa-pokemon-timestamp', Date.now().toString());
+        console.log(`✅ Cache guardado correctamente: ${allPokemon.length} Pokémon`);
       } catch (cacheError) {
         console.error('Error guardando en cache:', cacheError);
-        // Si el localStorage está lleno, limpiar y intentar de nuevo
-        localStorage.clear();
+        // Si el localStorage está lleno, limpiar cache viejo y intentar de nuevo
         try {
-          localStorage.setItem('pokemonCache', JSON.stringify(allPokemon));
-          localStorage.setItem('pokemonCacheTimestamp', Date.now().toString());
-          console.log('✅ Cache guardado después de limpiar');
+          // Limpiar solo caches viejos
+          localStorage.removeItem('pokemonCache');
+          localStorage.removeItem('pokemonCacheTimestamp');
+          
+          localStorage.setItem('pokepwa-pokemon-data', JSON.stringify(allPokemon));
+          localStorage.setItem('pokepwa-pokemon-timestamp', Date.now().toString());
+          console.log('✅ Cache guardado después de limpiar caches antiguos');
         } catch (retryError) {
-          console.error('Error guardando cache después de limpiar:', retryError);
+          console.error('Error crítico guardando cache:', retryError);
+          // Como último recurso, guardar solo los primeros 500 Pokémon
+          try {
+            const reducedPokemon = allPokemon.slice(0, 500);
+            localStorage.setItem('pokepwa-pokemon-data', JSON.stringify(reducedPokemon));
+            localStorage.setItem('pokepwa-pokemon-timestamp', Date.now().toString());
+            console.log(`⚠️ Cache reducido guardado: ${reducedPokemon.length} Pokémon`);
+          } catch (finalError) {
+            console.error('Error final guardando cache:', finalError);
+          }
         }
       }
       

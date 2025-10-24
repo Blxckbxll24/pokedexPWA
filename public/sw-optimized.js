@@ -8,7 +8,9 @@ const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/favicon.ico'
+  '/favicon.ico',
+  '/logo192.png',
+  '/logo512.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -17,7 +19,15 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('📦 Precargando recursos críticos...');
-        return cache.addAll(urlsToCache);
+        // Cachear recursos uno por uno para evitar fallos
+        return Promise.allSettled(
+          urlsToCache.map(url => 
+            cache.add(url).catch(err => {
+              console.warn(`No se pudo cachear ${url}:`, err);
+              return null;
+            })
+          )
+        );
       })
       .then(() => {
         console.log('✅ Service Worker instalado correctamente');
